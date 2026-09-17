@@ -1,0 +1,67 @@
+@import "tailwindcss";
+
+@theme {
+  --color-cream: #faf6ec;
+  --color-parchment: #f3edde;
+  --color-sage-100: #e9ede1;
+  --color-sage-200: #d7ddc9;
+  --color-sage-500: #7d8b6f;
+  --color-forest-50: #f2f7f2;
+  --color-forest-100: #e0ede1;
+  --color-forest-200: #c2dcc5;
+  --color-forest-300: #98c39e;
+  --color-forest-400: #6aa674;
+  --color-forest-500: #488855;
+  --color-forest-600: #346e43;
+  --color-forest-700: #2a5737;
+  --color-forest-800: #23452e;
+  --color-forest-900: #1d3a27;
+  --color-forest-950: #0f2015;
+  --color-ember-100: #fdeede;
+  --color-ember-500: #e07b24;
+  --color-ember-700: #b25a12;
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--color-cream);
+  color: #1f2923;
+  font-family: var(--font-sans);
+}
+
+::selection {
+  background: var(--color-forest-200);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-forest-600);
+  outline-offset: 2px;
+}
+
+/* Subtle highlight when a delivery lands (applied briefly via .animate-flash). */
+@keyframes flash-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgba(52, 110, 67, 0.45);
+  }
+  100% {
+    box-shadow: 0 0 0 14px rgba(52, 110, 67, 0);
+  }
+}
+
+.animate-flash {
+  animation: flash-ring 1.2s ease-out 2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .animate-flash {
+    animation: none;
+  }
+}
