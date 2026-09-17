@@ -179,6 +179,7 @@ export default function Home() {
   const [parsed, setParsed] = useState(false);
   const [editOpen, setEditOpen] = useState(true);
   const [justPosted, setJustPosted] = useState<string | null>(null);
+  const [deadlineError, setDeadlineError] = useState<string | null>(null);
 
   // Nonprofit + volunteer focus state
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -224,14 +225,24 @@ export default function Home() {
     setDietary(p.dietaryTags.join(", "));
     setAllergens(p.allergens.join(", "));
     setStorage(p.storage);
-    // The parser returns "" when no pickup time is stated — keep the
-    // form's current value instead of inventing a deadline.
-    if (p.pickupDeadline) setDeadline(p.pickupDeadline);
+    // The parser returns "" when no pickup time is stated — always apply it
+    // so a stale deadline from a previous parse can never carry over.
+    setDeadline(p.pickupDeadline);
+    setDeadlineError(null);
     setParsed(true);
-    setEditOpen(false);
+    // Collapse the details after a complete parse, but keep them open when
+    // no deadline was found so the empty Pickup-by field stays visible.
+    setEditOpen(!p.pickupDeadline);
   }
 
   function handlePost() {
+    // A donation record must never inherit a stale deadline or a silent
+    // fallback — the donor explicitly provides the pickup time.
+    if (!deadline.trim()) {
+      setDeadlineError("Pickup deadline required — add a pickup time before posting.");
+      return;
+    }
+    setDeadlineError(null);
     const d: Donation = {
       id: `don-${Date.now()}`,
       title: title.trim() || "Surplus food donation",
@@ -243,7 +254,7 @@ export default function Home() {
       dietaryTags: dietary.split(",").map((s) => s.trim()).filter(Boolean),
       allergens: allergens.split(",").map((s) => s.trim()).filter(Boolean),
       storage,
-      pickupDeadline: deadline.trim() || "8:30 PM",
+      pickupDeadline: deadline.trim(),
       pickupLocation: location.trim() || "Fremont (Demo)",
       pickupNotes: notes.trim(),
       donorName: DEMO_DONOR,
@@ -299,6 +310,7 @@ export default function Home() {
     setParsed(false);
     setEditOpen(true);
     setFlash(false);
+    setDeadlineError(null);
   }
 
   function loadFeatured() {
@@ -540,7 +552,11 @@ export default function Home() {
                         </p>
                         <div className="mt-2 flex flex-wrap gap-1.5">
                           <Chip label={storage} tone="bg-white text-forest-900 ring-1 ring-forest-200" />
-                          <Chip label={`by ${deadline}`} tone="bg-white text-forest-900 ring-1 ring-forest-200" />
+                          {deadline.trim() ? (
+                            <Chip label={`by ${deadline}`} tone="bg-white text-forest-900 ring-1 ring-forest-200" />
+                          ) : (
+                            <Chip label="No pickup deadline provided" tone="bg-red-100 text-red-800" />
+                          )}
                           {tags.map((t) => <Chip key={t} label={t} tone="bg-forest-100 text-forest-800" />)}
                           {allergenList.map((a) => <Chip key={a} label={`has ${a}`} tone="bg-ember-100 text-ember-700" />)}
                         </div>
@@ -600,7 +616,7 @@ export default function Home() {
                           <legend className="text-xs font-extrabold uppercase tracking-wide text-sage-500">Pickup</legend>
                           <div className="mt-1.5 grid grid-cols-2 gap-2 text-sm">
                             <label className="font-medium">Pickup by
-                              <input value={deadline} onChange={(e) => setDeadline(e.target.value)} className="mt-1 w-full rounded-xl border border-forest-100 bg-white p-2.5 outline-none focus:border-forest-400" />
+                              <input value={deadline} onChange={(e) => { setDeadline(e.target.value); if (e.target.value.trim()) setDeadlineError(null); }} aria-invalid={deadlineError ? true : undefined} aria-describedby={deadlineError ? "deadline-error" : undefined} className={`mt-1 w-full rounded-xl border bg-white p-2.5 outline-none focus:border-forest-400 ${deadlineError ? "border-red-400" : "border-forest-100"}`} />
                             </label>
                             <label className="font-medium">Pickup place
                               <input value={location} onChange={(e) => setLocation(e.target.value)} className="mt-1 w-full rounded-xl border border-forest-100 bg-white p-2.5 outline-none focus:border-forest-400" />
@@ -616,6 +632,11 @@ export default function Home() {
                     <button onClick={handlePost} className="mt-4 w-full rounded-2xl bg-forest-700 px-4 py-3.5 font-bold text-white shadow-md transition hover:bg-forest-800">
                       Post donation
                     </button>
+                    {deadlineError && (
+                      <p id="deadline-error" role="alert" className="mt-2 rounded-xl bg-red-50 px-3 py-2 text-[13px] font-semibold text-red-800">
+                        {deadlineError}
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
@@ -780,12 +801,13 @@ export default function Home() {
                         <Icon d={P.check} className="h-6 w-6" />
                       </span>
                       <h2 className="mt-3 text-xl font-extrabold tracking-tight">Routes complete</h2>
-                      <p className="mt-0.5 text-sm text-[#5a6b60]">Every rescue made it on time.</p>
+                      <p className="mt-0.5 text-sm text-[#5a6b60]">All current rescue routes are complete.</p>
                       <button onClick={() => scrollTo("impact")} className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-forest-700 px-4 py-3 text-sm font-bold text-white hover:bg-forest-800">
                         See the impact <Icon d={P.arrow} className="h-4 w-4" />
                       </button>
                     </div>
                   ) : (
+                    !lastDelivered && (
                     <div className="rounded-3xl border border-forest-100 bg-white p-5 text-center shadow-sm">
                       <h2 className="text-xl font-extrabold tracking-tight">No route yet</h2>
                       <p className="mt-0.5 text-sm text-[#5a6b60]">Claim a donation first to create one.</p>
@@ -793,6 +815,7 @@ export default function Home() {
                         Find food to rescue
                       </button>
                     </div>
+                    )
                   )
                 ) : (
                   <div>
