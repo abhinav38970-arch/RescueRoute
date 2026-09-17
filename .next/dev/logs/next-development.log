@@ -1,3 +1,4 @@
 {"timestamp":"00:00:00.940","source":"Server","level":"LOG","message":""}
 {"timestamp":"00:00:02.320","source":"Server","level":"LOG","message":"  Reload env: .env.development.local"}
 {"timestamp":"00:03:29.347","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"00:13:04.084","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
