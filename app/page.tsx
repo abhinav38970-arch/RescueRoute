@@ -40,6 +40,23 @@ const GUIDE_STEPS = [
   "Watch impact update",
 ];
 
+// Default donor form values = the intended starting state. doReset restores
+// every field from here so Reset Demo is fully predictable.
+const DEFAULT_FORM = {
+  rawText: SAMPLE_TEXT,
+  title: "14 boxed vegetarian wraps",
+  meals: 14,
+  unit: "items" as const,
+  pounds: 12,
+  category: "prepared meals",
+  dietary: "vegetarian",
+  allergens: "dairy",
+  storage: "refrigerated" as const,
+  deadline: "8:45 PM",
+  location: "Sunrise Bakery, Fremont (Demo)",
+  notes: "Pickup through back entrance.",
+};
+
 /* --------------------------------- helpers --------------------------------- */
 
 // Display names stay sentence case; underlying status values are untouched.
@@ -93,12 +110,13 @@ function urgencyFor(d: Donation): Urgency {
   };
 }
 
-// One short reason for the best fit (≤14 words).
+// One short reason for the best fit (≤14 words). Only factors the scoring
+// function truly uses: storage, food type, and distance.
 function shortReason(d: Donation, np: Nonprofit): string {
   const storage =
     d.storage === "refrigerated" ? "Cold storage ready" : d.storage === "frozen" ? "Freezer ready" : "Room-temp OK";
   const food = d.category === "baked goods" ? "takes baked goods" : "takes prepared meals";
-  return `${storage}, ${food}, open until ${np.openUntil}.`;
+  return `${storage}, ${food}, ${np.distanceMiles} mi away.`;
 }
 
 // One short limitation or advantage for the other candidates.
@@ -107,7 +125,7 @@ function candidateNote(d: Donation, np: Nonprofit): string {
   if (d.storage === "frozen" && !np.hasFreezer) return "No freezer on site.";
   if (d.category === "baked goods" && !np.acceptsBaked) return "Doesn't take baked goods.";
   if (d.category.includes("prepared") && !np.acceptsPrepared) return "Doesn't take prepared meals.";
-  if (d.meals > np.maxMeals) return `Over capacity (max ${np.maxMeals} meals).`;
+  if (d.meals > np.maxMeals) return `Over capacity (max ${np.maxMeals}).`;
   return `${np.distanceMiles} mi away · open until ${np.openUntil}.`;
 }
 
@@ -146,17 +164,18 @@ export default function Home() {
   const [role, setRole] = useState<Role>("donor");
 
   // Donor form state (all fields preserved; progressively disclosed)
-  const [rawText, setRawText] = useState(SAMPLE_TEXT);
-  const [title, setTitle] = useState("14 boxed vegetarian wraps");
-  const [meals, setMeals] = useState(14);
-  const [pounds, setPounds] = useState(12);
-  const [category, setCategory] = useState("prepared meals");
-  const [dietary, setDietary] = useState("vegetarian");
-  const [allergens, setAllergens] = useState("dairy");
-  const [storage, setStorage] = useState<"room" | "refrigerated" | "frozen">("refrigerated");
-  const [deadline, setDeadline] = useState("8:45 PM");
-  const [location, setLocation] = useState("Sunrise Bakery, Fremont (Demo)");
-  const [notes, setNotes] = useState("Pickup through back entrance.");
+  const [rawText, setRawText] = useState(DEFAULT_FORM.rawText);
+  const [title, setTitle] = useState(DEFAULT_FORM.title);
+  const [meals, setMeals] = useState(DEFAULT_FORM.meals);
+  const [unit, setUnit] = useState<"meals" | "items">(DEFAULT_FORM.unit);
+  const [pounds, setPounds] = useState(DEFAULT_FORM.pounds);
+  const [category, setCategory] = useState(DEFAULT_FORM.category);
+  const [dietary, setDietary] = useState(DEFAULT_FORM.dietary);
+  const [allergens, setAllergens] = useState(DEFAULT_FORM.allergens);
+  const [storage, setStorage] = useState<"room" | "refrigerated" | "frozen">(DEFAULT_FORM.storage);
+  const [deadline, setDeadline] = useState(DEFAULT_FORM.deadline);
+  const [location, setLocation] = useState(DEFAULT_FORM.location);
+  const [notes, setNotes] = useState(DEFAULT_FORM.notes);
   const [parsed, setParsed] = useState(false);
   const [editOpen, setEditOpen] = useState(true);
   const [justPosted, setJustPosted] = useState<string | null>(null);
@@ -164,13 +183,15 @@ export default function Home() {
   // Nonprofit + volunteer focus state
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [lastClaimedId, setLastClaimedId] = useState<string | null>(null);
+  const [lastDeliveredId, setLastDeliveredId] = useState<string | null>(null);
   const [flash, setFlash] = useState(false);
 
   const impact = useMemo(() => {
     const delivered = donations.filter((d) => d.status === "Delivered");
     return {
       lbs: delivered.reduce((s, d) => s + d.pounds, 0),
-      meals: delivered.reduce((s, d) => s + d.meals, 0),
+      // Every sandwich, pastry, wrap, or meal counts as one item.
+      items: delivered.reduce((s, d) => s + d.meals, 0),
       deliveries: delivered.length,
       active: donations.filter((d) => d.status !== "Delivered").length,
     };
@@ -197,12 +218,15 @@ export default function Home() {
     const p = demoParse(text);
     setTitle(p.title);
     setMeals(p.meals);
+    setUnit(p.unit);
     setPounds(p.pounds);
     setCategory(p.category);
     setDietary(p.dietaryTags.join(", "));
     setAllergens(p.allergens.join(", "));
     setStorage(p.storage);
-    setDeadline(p.pickupDeadline);
+    // The parser returns "" when no pickup time is stated — keep the
+    // form's current value instead of inventing a deadline.
+    if (p.pickupDeadline) setDeadline(p.pickupDeadline);
     setParsed(true);
     setEditOpen(false);
   }
@@ -213,6 +237,7 @@ export default function Home() {
       title: title.trim() || "Surplus food donation",
       description: rawText.trim(),
       meals: Math.max(1, meals || 1),
+      unit,
       pounds: Math.max(0.5, pounds || 1),
       category,
       dietaryTags: dietary.split(",").map((s) => s.trim()).filter(Boolean),
@@ -240,11 +265,13 @@ export default function Home() {
       setLastClaimedId(d.id);
     } else if (d.status === "Claimed") {
       updateStatus(d.id, "Driver Assigned", { driverName: DEMO_DRIVER_POOL[0] });
+      setLastDeliveredId(null);
     } else if (d.status === "Driver Assigned") {
       updateStatus(d.id, "Picked Up");
     } else if (d.status === "Picked Up") {
       updateStatus(d.id, "Delivered");
       setLastClaimedId(null);
+      setLastDeliveredId(d.id);
       setFlash(true);
       window.setTimeout(() => setFlash(false), 2400);
     }
@@ -252,11 +279,26 @@ export default function Home() {
 
   function doReset() {
     reset();
+    setRole("donor");
+    setRawText(DEFAULT_FORM.rawText);
+    setTitle(DEFAULT_FORM.title);
+    setMeals(DEFAULT_FORM.meals);
+    setUnit(DEFAULT_FORM.unit);
+    setPounds(DEFAULT_FORM.pounds);
+    setCategory(DEFAULT_FORM.category);
+    setDietary(DEFAULT_FORM.dietary);
+    setAllergens(DEFAULT_FORM.allergens);
+    setStorage(DEFAULT_FORM.storage);
+    setDeadline(DEFAULT_FORM.deadline);
+    setLocation(DEFAULT_FORM.location);
+    setNotes(DEFAULT_FORM.notes);
     setJustPosted(null);
     setLastClaimedId(null);
+    setLastDeliveredId(null);
     setSelectedId(null);
     setParsed(false);
     setEditOpen(true);
+    setFlash(false);
   }
 
   function loadFeatured() {
@@ -270,6 +312,7 @@ export default function Home() {
   function pickRole(r: Role) {
     setRole(r);
     setJustPosted(null);
+    setLastDeliveredId(null);
   }
 
   // Stepper state: done flags from donation statuses, current from role.
@@ -288,6 +331,7 @@ export default function Home() {
   const available = donations.filter((d) => d.status === "Available");
   const activeDonation = available.find((d) => d.id === selectedId) ?? available[0] ?? null;
   const lastClaimed = lastClaimedId ? donations.find((d) => d.id === lastClaimedId) ?? null : null;
+  const lastDelivered = lastDeliveredId ? donations.find((d) => d.id === lastDeliveredId) ?? null : null;
 
   const routeOrder = (s: Donation["status"]) => STATUS_FLOW.indexOf(s);
   const activeRoute =
@@ -334,7 +378,7 @@ export default function Home() {
         <section className="border-b border-forest-100">
           <div className="mx-auto max-w-6xl px-4 pb-8 pt-10 sm:pt-14">
             <p className="inline-flex items-center rounded-full border border-forest-200 bg-white px-2.5 py-1 text-[11px] font-bold text-forest-800">
-              Fremont pilot · Prototype
+              Fremont-focused prototype
             </p>
             <h1 className="mt-3 max-w-xl text-4xl font-extrabold leading-[1.05] tracking-tight text-forest-950 sm:text-5xl">
               Save surplus food. Deliver it locally.
@@ -350,6 +394,12 @@ export default function Home() {
                 See how it works
               </button>
             </div>
+            <p className="mt-3 text-[13px] text-[#5a6b60]">
+              <button onClick={loadFeatured} className="font-semibold text-forest-700 underline-offset-4 hover:underline">
+                Try the 90-second bakery scenario
+              </button>{" "}
+              · loads fictional demo data
+            </p>
 
             {/* Icon-led role strip */}
             <div className="mt-7 flex flex-wrap items-center gap-2 text-[13px] font-semibold text-forest-900 sm:gap-3" aria-label="Three roles: donor, nonprofit, volunteer">
@@ -380,10 +430,11 @@ export default function Home() {
                   Reset
                 </button>
               </div>
-              <ol className="flex gap-1 overflow-x-auto" aria-label="Demo progress">
+              <ol className="flex gap-1" aria-label="Demo progress">
                 {STEPS.map((label, i) => {
                   const done = stageDone[i];
                   const current = i === stageCurrent;
+                  const short = ["Post", "Claim", "Deliver", "Impact"][i];
                   const go = () => {
                     if (i === 0) pickRole("donor");
                     else if (i === 1) pickRole("nonprofit");
@@ -395,8 +446,8 @@ export default function Home() {
                       <button
                         onClick={go}
                         aria-current={current ? "step" : undefined}
-                        className={`flex w-full items-center gap-2 whitespace-nowrap rounded-2xl px-2.5 py-2 text-left text-[13px] font-bold transition ${
-                          current ? "bg-forest-700 text-white shadow" : done ? "text-forest-800 hover:bg-forest-50" : "text-[#8a978d] hover:bg-forest-50"
+                        className={`flex w-full flex-col items-center gap-1 rounded-2xl px-1 py-2 text-center text-[11px] font-bold transition sm:flex-row sm:gap-2 sm:whitespace-nowrap sm:px-2.5 sm:text-left sm:text-[13px] ${
+                          current ? "bg-forest-700 text-white shadow" : done ? "text-forest-800 hover:bg-forest-50" : "text-[#5a6b60] hover:bg-forest-50"
                         }`}
                       >
                         <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] ${
@@ -404,7 +455,8 @@ export default function Home() {
                         }`}>
                           {done && !current ? <Icon d={P.check} className="h-3.5 w-3.5" /> : i + 1}
                         </span>
-                        {label}
+                        <span className="sm:hidden">{short}</span>
+                        <span className="hidden sm:inline">{label}</span>
                       </button>
                     </li>
                   );
@@ -413,7 +465,7 @@ export default function Home() {
             </div>
 
             {/* Role switcher */}
-            <div className="mt-4" role="tablist" aria-label="Demo role">
+            <div className="mt-4" role="group" aria-label="Demo role">
               <div className="grid grid-cols-3 gap-1 rounded-2xl bg-forest-100/70 p-1">
                 {([
                   ["donor", "Donor", P.store],
@@ -422,8 +474,7 @@ export default function Home() {
                 ] as [Role, string, string][]).map(([r, label, icon]) => (
                   <button
                     key={r}
-                    role="tab"
-                    aria-selected={role === r}
+                    aria-pressed={role === r}
                     onClick={() => pickRole(r)}
                     className={`flex items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 text-sm font-bold transition ${
                       role === r ? "bg-white text-forest-900 shadow" : "text-[#5a6b60] hover:text-forest-800"
@@ -479,13 +530,13 @@ export default function Home() {
                         Try a sample
                       </button>
                     </div>
-                    <p className="mt-1.5 text-[11px] text-[#8a978d]">Demo parser · no live AI call</p>
+                    <p className="mt-1.5 text-[11px] text-[#5a6b60]">Demo parser · no live AI call</p>
 
                     {parsed && (
                       <div className="mt-4 rounded-2xl bg-forest-50 p-4 ring-1 ring-forest-100">
                         <p className="font-bold">{title || "Surplus food donation"}</p>
                         <p className="mt-0.5 text-[13px] text-[#5a6b60]">
-                          {meals} meals · {pounds} lbs · {category}
+                          {meals} {unit} · {pounds} lbs · {category}
                         </p>
                         <div className="mt-2 flex flex-wrap gap-1.5">
                           <Chip label={storage} tone="bg-white text-forest-900 ring-1 ring-forest-200" />
@@ -507,13 +558,19 @@ export default function Home() {
                             <label className="col-span-2 font-medium">Title
                               <input value={title} onChange={(e) => setTitle(e.target.value)} className="mt-1 w-full rounded-xl border border-forest-100 bg-white p-2.5 outline-none focus:border-forest-400" />
                             </label>
-                            <label className="font-medium">Meals
+                            <label className="font-medium">Quantity
                               <input type="number" min={1} value={meals} onChange={(e) => setMeals(Number(e.target.value))} className="mt-1 w-full rounded-xl border border-forest-100 bg-white p-2.5 outline-none focus:border-forest-400" />
+                            </label>
+                            <label className="font-medium">Unit
+                              <select value={unit} onChange={(e) => setUnit(e.target.value as "meals" | "items")} className="mt-1 w-full rounded-xl border border-forest-100 bg-white p-2.5 outline-none focus:border-forest-400">
+                                <option value="items">items</option>
+                                <option value="meals">meals</option>
+                              </select>
                             </label>
                             <label className="font-medium">Pounds
                               <input type="number" min={0.5} step={0.5} value={pounds} onChange={(e) => setPounds(Number(e.target.value))} className="mt-1 w-full rounded-xl border border-forest-100 bg-white p-2.5 outline-none focus:border-forest-400" />
                             </label>
-                            <label className="col-span-2 font-medium">Category
+                            <label className="font-medium">Category
                               <select value={category} onChange={(e) => setCategory(e.target.value)} className="mt-1 w-full rounded-xl border border-forest-100 bg-white p-2.5 outline-none focus:border-forest-400">
                                 <option>prepared meals</option><option>baked goods</option>
                                 <option>prepared + baked</option><option>produce</option><option>packaged food</option>
@@ -568,7 +625,8 @@ export default function Home() {
             {role === "nonprofit" && (
               <div className="mt-5">
                 <h2 className="text-xl font-extrabold tracking-tight">Available food</h2>
-                <p className="mt-0.5 text-sm text-[#5a6b60]">Matches are ranked by fit and pickup window.</p>
+                <p className="mt-0.5 text-sm text-[#5a6b60]">Ranked by a transparent demo fit score.</p>
+                <p className="mt-0.5 text-xs text-[#5a6b60]">Based on the prototype&apos;s food type, storage, diet, capacity, and distance.</p>
 
                 {activeDonation && lastClaimed && lastClaimed.status !== "Available" && lastClaimed.status !== "Delivered" && (
                   <div className="mt-3 flex items-center gap-2.5 rounded-2xl border border-forest-200 bg-forest-50 px-3.5 py-2.5" role="status">
@@ -612,7 +670,7 @@ export default function Home() {
                         <div className="min-w-0">
                           <p className="font-bold leading-snug">{activeDonation.title}</p>
                           <p className="mt-0.5 text-[13px] text-[#5a6b60]">
-                            {activeDonation.meals} meals · {activeDonation.pounds} lbs · {activeDonation.distanceMiles} mi away
+                            {activeDonation.meals} {activeDonation.unit} · {activeDonation.pounds} lbs · {activeDonation.distanceMiles} mi away
                           </p>
                         </div>
                         <UrgencyChip d={activeDonation} />
@@ -629,7 +687,7 @@ export default function Home() {
                         <div className="mt-1.5 space-y-1 text-[13px] leading-relaxed text-[#43544a]">
                           <p>{activeDonation.description}</p>
                           <p>{activeDonation.pickupLocation}{activeDonation.pickupNotes ? ` · ${activeDonation.pickupNotes}` : ""}</p>
-                          <p className="text-[#8a978d]">{activeDonation.donorName}</p>
+                          <p className="text-[#5a6b60]">{activeDonation.donorName}</p>
                         </div>
                       </details>
                       {available.length > 1 && (
@@ -643,7 +701,7 @@ export default function Home() {
                                 d.id === activeDonation.id ? "bg-forest-700 text-white" : "bg-cream text-forest-800 ring-1 ring-forest-100 hover:bg-forest-50"
                               }`}
                             >
-                              {d.meals} meals · by {d.pickupDeadline}
+                              {d.meals} {d.unit} · by {d.pickupDeadline}
                             </button>
                           ))}
                         </div>
@@ -659,18 +717,18 @@ export default function Home() {
                           <div className="rounded-3xl border-2 border-forest-600 bg-white p-4 shadow-sm">
                             <div className="flex items-center justify-between gap-2">
                               <span className="rounded-full bg-forest-700 px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-wide text-white">Best fit</span>
-                              <span className="text-lg font-extrabold text-forest-800">{best.m.score}%</span>
+                              <span className="text-sm text-forest-800"><strong className="text-lg font-extrabold">{best.m.score}</strong> demo fit score</span>
                             </div>
-                            <p className="mt-1.5 font-bold">{best.np.name.replace(" (Demo)", "")} <span className="text-xs font-medium text-[#8a978d]">· demo org</span></p>
+                            <p className="mt-1.5 font-bold">{best.np.name.replace(" (Demo)", "")} <span className="text-xs font-medium text-[#5a6b60]">· demo org</span></p>
                             <p className="mt-0.5 text-sm text-[#43544a]">{shortReason(activeDonation, best.np)}</p>
                             <button onClick={() => handleAdvance(activeDonation, best.np.id)} className="mt-3 w-full rounded-2xl bg-forest-700 px-4 py-3 text-sm font-bold text-white transition hover:bg-forest-800">
                               Claim donation
                             </button>
                             <details className="mt-2">
-                              <summary className="cursor-pointer list-none text-xs font-bold text-sage-500 [&::-webkit-details-marker]:hidden">
+                              <summary className="cursor-pointer list-none text-xs font-bold text-[#5a6b60] [&::-webkit-details-marker]:hidden">
                                 <span className="inline-flex items-center gap-1">Why this match? <Icon d={P.chev} className="h-3.5 w-3.5" /></span>
                               </summary>
-                              <p className="mt-1 text-xs leading-relaxed text-[#5a6b60]">{best.m.reasons.join(" · ")}</p>
+                              <p className="mt-1 text-xs leading-relaxed text-[#5a6b60]">Demo fit score from food type, storage, diet, capacity, and distance: {best.m.reasons.join(" · ")}</p>
                             </details>
                           </div>
 
@@ -679,7 +737,7 @@ export default function Home() {
                               {rest.map(({ np, m }) => (
                                 <div key={np.id} className="flex items-center gap-2 rounded-2xl border border-forest-100 bg-white px-3 py-2.5 shadow-sm">
                                   <div className="min-w-0 flex-1">
-                                    <p className="truncate text-sm font-bold">{np.name.replace(" (Demo)", "")} <span className="ml-1 rounded-full bg-cream px-1.5 py-0.5 text-[11px] font-extrabold text-forest-800 ring-1 ring-forest-100">{m.score}%</span></p>
+                                    <p className="truncate text-sm font-bold">{np.name.replace(" (Demo)", "")} <span className="ml-1 rounded-full bg-cream px-1.5 py-0.5 text-[11px] font-extrabold text-forest-800 ring-1 ring-forest-100">Fit {m.score}</span></p>
                                     <p className="truncate text-xs text-[#5a6b60]">{candidateNote(activeDonation, np)}</p>
                                   </div>
                                   <button onClick={() => handleAdvance(activeDonation, np.id)} className="shrink-0 rounded-xl px-3 py-2 text-[13px] font-bold text-forest-800 ring-1 ring-forest-200 transition hover:bg-forest-50" aria-label={`Claim as ${np.name}`}>
@@ -700,6 +758,21 @@ export default function Home() {
             {/* ----------------------------- VOLUNTEER ----------------------------- */}
             {role === "volunteer" && (
               <div className="mt-5">
+                {lastDelivered && (
+                  <div className="animate-flash mb-4 rounded-3xl border border-forest-500 bg-white p-5 text-center shadow-sm" role="status">
+                    <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-forest-600 text-white">
+                      <Icon d={P.check} className="h-6 w-6" />
+                    </span>
+                    <h2 className="mt-3 text-xl font-extrabold tracking-tight">Rescue completed</h2>
+                    <p className="mt-1 text-sm font-bold">“{lastDelivered.title}”</p>
+                    <p className="mt-0.5 text-[13px] text-[#5a6b60]">
+                      Delivered to {lastDelivered.claimedByOrgName?.replace(" (Demo)", "") ?? "recipient org"} · {lastDelivered.pounds} lbs · {lastDelivered.meals} {lastDelivered.unit} recorded
+                    </p>
+                    <button onClick={() => scrollTo("impact")} className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-forest-700 px-4 py-3 text-sm font-bold text-white hover:bg-forest-800">
+                      View impact <Icon d={P.arrow} className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
                 {!activeRoute ? (
                   allDone ? (
                     <div className="rounded-3xl border border-forest-200 bg-white p-5 text-center shadow-sm" role="status">
@@ -733,6 +806,7 @@ export default function Home() {
                           <span>{activeRoute.distanceMiles} mi · ~{activeRoute.etaMinutes} min</span>
                           <UrgencyChip d={activeRoute} />
                         </div>
+                        <p className="mt-0.5 text-[11px] text-[#5a6b60]">Demo route estimate · simulated distance and time</p>
                         <div className="mt-3 flex items-center gap-2.5">
                           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-forest-700 text-white"><Icon d={P.store} className="h-4 w-4" /></span>
                           <div className="min-w-0">
@@ -753,7 +827,7 @@ export default function Home() {
                       {/* Essentials */}
                       <p className="mt-3 text-sm font-bold">{activeRoute.title}</p>
                       <div className="mt-1.5 flex flex-wrap gap-1.5">
-                        <Chip label={`${activeRoute.meals} meals · ${activeRoute.pounds} lbs`} tone="bg-cream text-forest-900 ring-1 ring-forest-100" />
+                        <Chip label={`${activeRoute.meals} ${activeRoute.unit} · ${activeRoute.pounds} lbs`} tone="bg-cream text-forest-900 ring-1 ring-forest-100" />
                         <Chip label={activeRoute.storage} tone="bg-sage-100 text-forest-900" />
                         <Chip label={`by ${activeRoute.pickupDeadline}`} tone="bg-cream text-forest-900 ring-1 ring-forest-100" />
                       </div>
@@ -777,7 +851,7 @@ export default function Home() {
                           return (
                             <li key={s} className="flex min-w-0 flex-1 items-center gap-1 last:flex-none">
                               <span className={`w-full truncate rounded-full px-2 py-1 text-center text-[10px] font-bold ${
-                                reached ? "bg-forest-700 text-white" : isNext ? "bg-forest-100 text-forest-800" : "bg-cream text-[#8a978d] ring-1 ring-forest-100"
+                                reached ? "bg-forest-700 text-white" : isNext ? "bg-forest-100 text-forest-800" : "bg-cream text-[#5a6b60] ring-1 ring-forest-100"
                               }`}>
                                 {DISPLAY_STATUS[s]}
                               </span>
@@ -832,7 +906,7 @@ export default function Home() {
             <div className="mt-4 grid grid-cols-3 gap-2 sm:gap-3">
               {[
                 { label: "Pounds", value: `${impact.lbs}` },
-                { label: "Meals", value: `${impact.meals}` },
+                { label: "Items rescued", value: `${impact.items}` },
                 { label: "Deliveries", value: `${impact.deliveries}`, hot: flash },
               ].map((s) => (
                 <div key={s.label} className={`rounded-3xl border bg-white p-4 text-center shadow-sm transition sm:p-5 ${s.hot ? "animate-flash border-forest-500" : "border-forest-100"}`}>
@@ -841,7 +915,8 @@ export default function Home() {
                 </div>
               ))}
             </div>
-            <p className="mt-2 text-center text-xs text-[#8a978d]">{impact.active} active now · Demo activity</p>
+            <p className="mt-2 text-center text-xs text-[#5a6b60]">Each item is one sandwich, pastry, wrap, or meal. Pounds are the primary measure.</p>
+            <p className="mt-1 text-center text-xs text-[#5a6b60]">{impact.active} active now · Demo activity</p>
 
             <div className="mt-4 rounded-3xl border border-forest-100 bg-white p-4 shadow-sm sm:p-5">
               <h3 className="text-sm font-extrabold">Recovered by category</h3>
@@ -870,7 +945,7 @@ export default function Home() {
               <ul className="space-y-1.5 pb-1 pt-2">
                 {donations.map((d) => (
                   <li key={d.id} className="flex items-center justify-between gap-2 rounded-xl bg-cream px-3 py-2 text-[13px] ring-1 ring-forest-100">
-                    <span className="min-w-0 truncate font-semibold">{d.title} <span className="font-normal text-[#8a978d]">· {d.pounds} lbs</span></span>
+                    <span className="min-w-0 truncate font-semibold">{d.title} <span className="font-normal text-[#5a6b60]">· {d.pounds} lbs</span></span>
                     <StatusPill status={d.status} />
                   </li>
                 ))}

@@ -70,6 +70,7 @@ export const SEED_DONATIONS: Donation[] = [
     description:
       "10 vegetarian sandwiches and 24 pastries, approximately 15 pounds total. Contains dairy and wheat. Pickup before 8:25 PM. Keep refrigerated.",
     meals: 34,
+    unit: "items",
     pounds: 15,
     category: "prepared + baked",
     dietaryTags: ["vegetarian", "nut-free"],
@@ -90,6 +91,7 @@ export const SEED_DONATIONS: Donation[] = [
     description:
       "14 boxed vegetarian wraps from a canceled catering order, ~12 lbs. Contains dairy. Keep cold. Pickup by 8:45 PM.",
     meals: 14,
+    unit: "items",
     pounds: 12,
     category: "prepared meals",
     dietaryTags: ["vegetarian"],

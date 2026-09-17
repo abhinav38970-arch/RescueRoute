@@ -13,9 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "RescueRoute Fremont — Food Recovery Demo",
+  title: "RescueRoute Fremont | Food Recovery Prototype",
   description:
-    "AI-assisted micro-donation demo connecting Fremont donors, nonprofits, and volunteer drivers. Fictional demo data.",
+    "A Fremont-focused prototype that demonstrates how local food donors, nonprofits, and volunteer drivers can coordinate time-sensitive surplus food before it becomes waste.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

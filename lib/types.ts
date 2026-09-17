@@ -11,7 +11,10 @@ export interface Donation {
   id: string;
   title: string;
   description: string;
+  // Total countable quantity. Unit is "meals" only when the donor explicitly
+  // states a prepared-meal count; otherwise "items" (sandwiches, pastries…).
   meals: number;
+  unit: "meals" | "items";
   pounds: number;
   category: string;
   dietaryTags: string[];

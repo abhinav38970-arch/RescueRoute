@@ -16,7 +16,13 @@ function load(): Persisted {
     if (!raw) return { donations: SEED_DONATIONS };
     const parsed = JSON.parse(raw) as Persisted;
     if (!Array.isArray(parsed.donations)) return { donations: SEED_DONATIONS };
-    return parsed;
+    // Normalize older saved donations that predate the meals/items unit.
+    return {
+      donations: (parsed.donations as Donation[]).map((d) => ({
+        ...d,
+        unit: d.unit === "meals" ? "meals" : "items",
+      })),
+    };
   } catch {
     return { donations: SEED_DONATIONS };
   }
