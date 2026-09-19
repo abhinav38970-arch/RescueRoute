@@ -1,6 +1,9 @@
-/* Stylized hand-drawn 3D route map of Fremont for the volunteer view.
+import type { ReactNode } from "react";
+
+/* Stylized hand-drawn 3D map of Fremont's food-rescue network.
    Pure SVG diorama — no map tiles, no API keys, no tracking.
-   Demo illustration, not to scale. */
+   Pins mark real Fremont restaurants and nonprofits. Availability
+   shown is fictional demo data. Illustrated, not to scale. */
 
 type Props = {
   pickup: string;
@@ -32,38 +35,95 @@ function Building({ x, y, w, h, tone = 0 }: { x: number; y: number; w: number; h
   );
 }
 
-function Pin({ x, y, color, label, labelBelow = true }: { x: number; y: number; color: string; label: string; labelBelow?: boolean }) {
-  const short = label.length > 22 ? label.slice(0, 21) + "…" : label;
-  const ly = labelBelow ? y + 34 : y - 30;
+function MapLabel({ x, y, anchor = "middle", children }: { x: number; y: number; anchor?: "middle" | "start" | "end"; children: ReactNode }) {
+  return (
+    <text
+      x={x}
+      y={y}
+      textAnchor={anchor}
+      fontSize="9.5"
+      fontWeight="800"
+      fill="#1d3a27"
+      style={{ paintOrder: "stroke", stroke: "#faf6ec", strokeWidth: 3.5 }}
+    >
+      {children}
+    </text>
+  );
+}
+
+/* Restaurant pin: green dot with a tiny takeout bag = food available tonight,
+   muted gray dot = nothing to rescue right now. */
+function FoodPin({
+  x,
+  y,
+  available,
+  label,
+  labelY,
+  labelAnchor = "middle",
+}: {
+  x: number;
+  y: number;
+  available: boolean;
+  label: string;
+  labelY: number;
+  labelAnchor?: "middle" | "start" | "end";
+}) {
   return (
     <g>
-      <ellipse cx={x} cy={y + 4} rx="13" ry="4.5" fill="#1d3a27" opacity="0.18" />
-      <path
-        d="M0,-17 C-9.5,-17 -16,-9.5 -16,-1.5 C-16,7 0,19 0,19 C0,19 16,7 16,-1.5 C16,-9.5 9.5,-17 0,-17 Z"
-        transform={`translate(${x},${y - 14}) rotate(-4)`}
-        fill={color}
-        stroke="#ffffff"
-        strokeWidth="2.5"
-      />
-      <circle cx={x - 1} cy={y - 19} r="5.5" fill="#ffffff" />
-      <text
-        x={x}
-        y={ly}
-        textAnchor="middle"
-        fontSize="11.5"
-        fontWeight="800"
-        fill="#1d3a27"
-        style={{ paintOrder: "stroke", stroke: "#faf6ec", strokeWidth: 3.5 }}
-      >
-        {short}
-      </text>
+      <ellipse cx={x} cy={y + 3} rx="11" ry="3.5" fill="#1d3a27" opacity="0.15" />
+      {available && (
+        <circle cx={x} cy={y} r="9" fill="none" stroke="#2a5737" strokeWidth="1.6">
+          <animate attributeName="r" values="9;15" dur="2.2s" repeatCount="indefinite" />
+          <animate attributeName="opacity" values="0.55;0" dur="2.2s" repeatCount="indefinite" />
+        </circle>
+      )}
+      <circle cx={x} cy={y} r={available ? 9 : 7} fill={available ? "#2a5737" : "#c3bca9"} stroke="#ffffff" strokeWidth="2" />
+      {available ? (
+        <g transform={`translate(${x},${y})`}>
+          <path d="M-2.4,-0.5 C-2.4,-3.6 2.4,-3.6 2.4,-0.5" fill="none" stroke="#ffffff" strokeWidth="1.3" />
+          <rect x="-3.8" y="-0.5" width="7.6" height="5.8" rx="1.2" fill="#ffffff" />
+        </g>
+      ) : (
+        <line x1={x - 2.6} y1={y} x2={x + 2.6} y2={y} stroke="#8a8270" strokeWidth="1.6" strokeLinecap="round" />
+      )}
+      <MapLabel x={x + (labelAnchor === "middle" ? 0 : labelAnchor === "end" ? -12 : 12)} y={labelY} anchor={labelAnchor}>
+        {label}
+      </MapLabel>
     </g>
   );
 }
 
-export default function RouteMap({ pickup, dropoff, distanceMiles, etaMinutes }: Props) {
-  const routePath =
-    "M105,208 C128,200 146,186 170,180 C204,171 228,154 250,138 C266,126 278,120 292,114";
+/* Nonprofit pin: dark rounded badge with a heart. */
+function OrgPin({
+  x,
+  y,
+  label,
+  labelY,
+}: {
+  x: number;
+  y: number;
+  label: string;
+  labelY: number;
+}) {
+  return (
+    <g>
+      <ellipse cx={x} cy={y + 3} rx="12" ry="4" fill="#1d3a27" opacity="0.15" />
+      <rect x={x - 9} y={y - 9} width="18" height="18" rx="5.5" fill="#1d3a27" stroke="#ffffff" strokeWidth="2" />
+      <path
+        d="M0,3.4 C-4.6,-0.6 -7.2,-2.8 -7.2,-4.8 C-7.2,-6.6 -5.8,-8 -4,-8 C-2.6,-8 -1.2,-7.1 0,-5.6 C1.2,-7.1 2.6,-8 4,-8 C5.8,-8 7.2,-6.6 7.2,-4.8 C7.2,-2.8 4.6,-0.6 0,3.4 Z"
+        transform={`translate(${x},${y + 0.5})`}
+        fill="#ffffff"
+      />
+      <MapLabel x={x} y={labelY}>
+        {label}
+      </MapLabel>
+    </g>
+  );
+}
+
+export default function RouteMap({}: Props) {
+  // Tonight's illustrated route: Boudin SF -> Tri-City Volunteers
+  const routePath = "M228,92 C200,94 172,106 152,120";
   return (
     <figure>
       <div
@@ -75,7 +135,7 @@ export default function RouteMap({ pickup, dropoff, distanceMiles, etaMinutes }:
             viewBox="0 0 400 300"
             className="block h-auto w-full"
             role="img"
-            aria-label={`Illustrated route map from ${pickup} to ${dropoff}`}
+            aria-label="Illustrated map of real Fremont restaurants and nonprofits in the food-rescue network"
           >
             <defs>
               <filter id="rm-paper" x="0%" y="0%" width="100%" height="100%">
@@ -145,7 +205,7 @@ export default function RouteMap({ pickup, dropoff, distanceMiles, etaMinutes }:
               <text x="336" y="150" fontSize="10" fontWeight="800" fill="#8a8270" transform="rotate(84 336 150)">
                 I-880
               </text>
-              <text x="150" y="142" fontSize="10" fontWeight="700" fill="#8a8270" transform="rotate(-2 150 142)">
+              <text x="86" y="140" fontSize="10" fontWeight="700" fill="#8a8270" transform="rotate(-2 86 140)">
                 Fremont Blvd
               </text>
 
@@ -159,7 +219,7 @@ export default function RouteMap({ pickup, dropoff, distanceMiles, etaMinutes }:
               <Building x={96} y={238} w={26} h={16} tone={1} />
               <Building x={352} y={60} w={24} h={16} tone={2} />
 
-              {/* route — hand-drawn dotted trail */}
+              {/* tonight's route — hand-drawn dotted trail */}
               <path
                 d={routePath}
                 fill="none"
@@ -175,16 +235,27 @@ export default function RouteMap({ pickup, dropoff, distanceMiles, etaMinutes }:
                 <animateMotion dur="7s" repeatCount="indefinite" path={routePath} />
               </circle>
 
-              {/* pins */}
-              <Pin x={105} y={208} color="#2a5737" label={pickup} labelBelow={true} />
-              <Pin x={292} y={114} color="#e07b24" label={dropoff} labelBelow={false} />
+              {/* restaurant pins */}
+              <FoodPin x={228} y={92} available label="Boudin SF" labelY={68} />
+              <FoodPin x={292} y={88} available label="Cakes & Bakes" labelY={64} />
+              <FoodPin x={260} y={118} available={false} label="Rajwadi Thali" labelY={144} />
+              <FoodPin x={220} y={142} available label="Smoking Pig BBQ" labelY={164} labelAnchor="end" />
+              <FoodPin x={296} y={132} available={false} label="Port of Peri Peri" labelY={156} />
 
-              {/* distance badge */}
-              <g transform="translate(200,262)">
-                <rect x="-72" y="-14" width="144" height="28" rx="14" fill="#1d3a27" opacity="0.92" />
-                <text x="0" y="4.5" textAnchor="middle" fontSize="12.5" fontWeight="800" fill="#faf6ec">
-                  {distanceMiles} mi · ~{etaMinutes} min drive
-                </text>
+              {/* nonprofit pins */}
+              <OrgPin x={148} y={124} label="Tri-City Volunteers" labelY={100} />
+              <OrgPin x={104} y={186} label="Centerville Dining Room" labelY={210} />
+              <OrgPin x={160} y={242} label="Salaam Food Pantry" labelY={266} />
+
+              {/* legend */}
+              <g transform="translate(10,244)">
+                <rect x="0" y="0" width="96" height="46" rx="9" fill="#fbf8ef" stroke="#d9d2bd" strokeWidth="1.2" opacity="0.97" />
+                <circle cx="11" cy="10" r="4.5" fill="#2a5737" />
+                <text x="20" y="13" fontSize="8.5" fontWeight="700" fill="#3d4a40">Food available</text>
+                <circle cx="11" cy="24" r="4.5" fill="#c3bca9" />
+                <text x="20" y="27" fontSize="8.5" fontWeight="700" fill="#3d4a40">Nothing tonight</text>
+                <rect x="6.5" y="33" width="9" height="9" rx="2.8" fill="#1d3a27" />
+                <text x="20" y="40.5" fontSize="8.5" fontWeight="700" fill="#3d4a40">Nonprofit</text>
               </g>
 
               {/* compass */}
@@ -203,7 +274,7 @@ export default function RouteMap({ pickup, dropoff, distanceMiles, etaMinutes }:
         </div>
       </div>
       <figcaption className="mt-1.5 text-center text-[11px] text-[#5a6b60]">
-        Illustrated demo map · not to scale · pins mark this rescue route
+        Tonight&rsquo;s route: Boudin SF &rarr; Tri-City Volunteers · real Fremont spots · availability shown is fictional
       </figcaption>
     </figure>
   );
