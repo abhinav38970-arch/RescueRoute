@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { Donation, DonationStatus, Nonprofit } from "./types";
 import { SEED_DONATIONS, SEED_NONPROFITS } from "./seed";
 
-const KEY = "rescueroute-fremont-v1";
+const KEY = "rescueroute-fremont-v2";
 
 interface Persisted {
   donations: Donation[];
