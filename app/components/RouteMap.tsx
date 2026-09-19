@@ -59,6 +59,7 @@ function FoodPin({
   available,
   label,
   labelY,
+  labelX,
   labelAnchor = "middle",
 }: {
   x: number;
@@ -66,6 +67,7 @@ function FoodPin({
   available: boolean;
   label: string;
   labelY: number;
+  labelX?: number;
   labelAnchor?: "middle" | "start" | "end";
 }) {
   return (
@@ -86,7 +88,7 @@ function FoodPin({
       ) : (
         <line x1={x - 2.6} y1={y} x2={x + 2.6} y2={y} stroke="#8a8270" strokeWidth="1.6" strokeLinecap="round" />
       )}
-      <MapLabel x={x + (labelAnchor === "middle" ? 0 : labelAnchor === "end" ? -12 : 12)} y={labelY} anchor={labelAnchor}>
+      <MapLabel x={labelX ?? x} y={labelY} anchor={labelAnchor}>
         {label}
       </MapLabel>
     </g>
@@ -98,12 +100,16 @@ function OrgPin({
   x,
   y,
   label,
+  labelX,
   labelY,
+  labelAnchor = "middle",
 }: {
   x: number;
   y: number;
   label: string;
+  labelX?: number;
   labelY: number;
+  labelAnchor?: "middle" | "start" | "end";
 }) {
   return (
     <g>
@@ -114,16 +120,43 @@ function OrgPin({
         transform={`translate(${x},${y + 0.5})`}
         fill="#ffffff"
       />
-      <MapLabel x={x} y={labelY}>
+      <MapLabel x={labelX ?? x} y={labelY} anchor={labelAnchor}>
         {label}
       </MapLabel>
     </g>
   );
 }
 
+function LegendIcon({ kind }: { kind: "food" | "none" | "org" }) {
+  if (kind === "food")
+    return (
+      <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">
+        <circle cx="10" cy="10" r="8" fill="#2a5737" stroke="#ffffff" strokeWidth="1.5" />
+        <path d="M7.6,9.5 C7.6,6.4 12.4,6.4 12.4,9.5" fill="none" stroke="#ffffff" strokeWidth="1.3" />
+        <rect x="6.2" y="9.5" width="7.6" height="5.8" rx="1.2" fill="#ffffff" />
+      </svg>
+    );
+  if (kind === "none")
+    return (
+      <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">
+        <circle cx="10" cy="10" r="6.5" fill="#c3bca9" stroke="#ffffff" strokeWidth="1.5" />
+        <line x1="7.4" y1="10" x2="12.6" y2="10" stroke="#8a8270" strokeWidth="1.6" strokeLinecap="round" />
+      </svg>
+    );
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">
+      <rect x="2" y="2" width="16" height="16" rx="5" fill="#1d3a27" stroke="#ffffff" strokeWidth="1.5" />
+      <path
+        d="M10,13.6 C6.6,10.6 4.6,9 4.6,7.4 C4.6,6 5.7,5 7,5 C8.1,5 9.2,5.7 10,6.9 C10.8,5.7 11.9,5 13,5 C14.3,5 15.4,6 15.4,7.4 C15.4,9 13.4,10.6 10,13.6 Z"
+        fill="#ffffff"
+      />
+    </svg>
+  );
+}
+
 export default function RouteMap({}: Props) {
   // Tonight's illustrated route: Boudin SF -> Tri-City Volunteers
-  const routePath = "M228,92 C200,94 172,106 152,120";
+  const routePath = "M210,80 C200,108 176,128 149,122";
   return (
     <figure>
       <div
@@ -214,7 +247,7 @@ export default function RouteMap({}: Props) {
               <Building x={196} y={196} w={30} h={20} tone={1} />
               <Building x={238} y={206} w={22} h={14} tone={2} />
               <Building x={296} y={182} w={24} h={18} tone={0} />
-              <Building x={186} y={108} w={24} h={15} tone={2} />
+              <Building x={150} y={170} w={24} h={15} tone={2} />
               <Building x={336} y={222} w={28} h={18} tone={1} />
               <Building x={96} y={238} w={26} h={16} tone={1} />
               <Building x={352} y={60} w={24} h={16} tone={2} />
@@ -236,27 +269,16 @@ export default function RouteMap({}: Props) {
               </circle>
 
               {/* restaurant pins */}
-              <FoodPin x={228} y={92} available label="Boudin SF" labelY={68} />
-              <FoodPin x={292} y={88} available label="Cakes & Bakes" labelY={64} />
-              <FoodPin x={260} y={118} available={false} label="Rajwadi Thali" labelY={144} />
-              <FoodPin x={220} y={142} available label="Smoking Pig BBQ" labelY={164} labelAnchor="end" />
-              <FoodPin x={296} y={132} available={false} label="Port of Peri Peri" labelY={156} />
+              <FoodPin x={210} y={80} available label="Boudin SF" labelY={56} />
+              <FoodPin x={298} y={76} available label="Cakes & Bakes" labelY={52} />
+              <FoodPin x={258} y={116} available={false} label="Rajwadi Thali" labelY={142} />
+              <FoodPin x={196} y={148} available label="Smoking Pig BBQ" labelY={172} labelX={184} labelAnchor="end" />
+              <FoodPin x={312} y={124} available={false} label="Port of Peri Peri" labelY={156} />
 
               {/* nonprofit pins */}
-              <OrgPin x={148} y={124} label="Tri-City Volunteers" labelY={100} />
-              <OrgPin x={104} y={186} label="Centerville Dining Room" labelY={210} />
-              <OrgPin x={160} y={242} label="Salaam Food Pantry" labelY={266} />
-
-              {/* legend */}
-              <g transform="translate(10,244)">
-                <rect x="0" y="0" width="96" height="46" rx="9" fill="#fbf8ef" stroke="#d9d2bd" strokeWidth="1.2" opacity="0.97" />
-                <circle cx="11" cy="10" r="4.5" fill="#2a5737" />
-                <text x="20" y="13" fontSize="8.5" fontWeight="700" fill="#3d4a40">Food available</text>
-                <circle cx="11" cy="24" r="4.5" fill="#c3bca9" />
-                <text x="20" y="27" fontSize="8.5" fontWeight="700" fill="#3d4a40">Nothing tonight</text>
-                <rect x="6.5" y="33" width="9" height="9" rx="2.8" fill="#1d3a27" />
-                <text x="20" y="40.5" fontSize="8.5" fontWeight="700" fill="#3d4a40">Nonprofit</text>
-              </g>
+              <OrgPin x={140} y={120} label="Tri-City Volunteers" labelX={128} labelY={120} labelAnchor="end" />
+              <OrgPin x={100} y={190} label="Centerville Dining Room" labelY={214} />
+              <OrgPin x={160} y={244} label="Salaam Food Pantry" labelY={268} />
 
               {/* compass */}
               <g transform="translate(368,266)" opacity="0.9">
@@ -273,6 +295,20 @@ export default function RouteMap({}: Props) {
           </svg>
         </div>
       </div>
+
+      {/* symbol key — HTML so it stays crisp and never clips */}
+      <div className="mt-2.5 flex flex-wrap items-center justify-center gap-x-5 gap-y-1.5" role="list" aria-label="Map symbol key">
+        <span role="listitem" className="flex items-center gap-1.5 text-[11px] font-bold text-[#3d4a40]">
+          <LegendIcon kind="food" /> Food available
+        </span>
+        <span role="listitem" className="flex items-center gap-1.5 text-[11px] font-bold text-[#3d4a40]">
+          <LegendIcon kind="none" /> Nothing tonight
+        </span>
+        <span role="listitem" className="flex items-center gap-1.5 text-[11px] font-bold text-[#3d4a40]">
+          <LegendIcon kind="org" /> Nonprofit
+        </span>
+      </div>
+
       <figcaption className="mt-1.5 text-center text-[11px] text-[#5a6b60]">
         Tonight&rsquo;s route: Boudin SF &rarr; Tri-City Volunteers · real Fremont spots · availability shown is fictional
       </figcaption>
