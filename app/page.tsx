@@ -706,6 +706,7 @@ export default function Home() {
                         {activeDonation.allergens.map((a) => <Chip key={a} label={`has ${a}`} tone="bg-ember-100 text-ember-700" />)}
                       </div>
                                             {available.length > 1 && (
+                        <>
                         <p className="text-[11px] font-extrabold uppercase tracking-wide text-sage-500">Available donations</p>
                         <div className="mt-1 flex flex-wrap gap-1.5" role="group" aria-label="Choose donation">
                           {available.map((d) => (
@@ -721,6 +722,7 @@ export default function Home() {
                             </button>
                           ))}
                         </div>
+                        </>
                       )}
 <details className="mt-2">
                         <summary className="cursor-pointer list-none text-[13px] font-bold text-forest-700 [&::-webkit-details-marker]:hidden">
