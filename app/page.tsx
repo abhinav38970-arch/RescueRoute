@@ -189,12 +189,16 @@ export default function Home() {
 
   const impact = useMemo(() => {
     const delivered = donations.filter((d) => d.status === "Delivered");
+    const lbs = delivered.reduce((s, d) => s + d.pounds, 0);
     return {
-      lbs: delivered.reduce((s, d) => s + d.pounds, 0),
+      lbs,
       // Every sandwich, pastry, wrap, or meal counts as one item.
       items: delivered.reduce((s, d) => s + d.meals, 0),
       deliveries: delivered.length,
       active: donations.filter((d) => d.status !== "Delivered").length,
+      // Rough demo estimate of CO2e avoided: ~2.5 lbs per lb of food kept
+      // out of landfill (FAO food-wastage footprint figure). Not certified.
+      co2e: Math.round(lbs * 2.5 * 10) / 10,
     };
   }, [donations]);
 
@@ -396,7 +400,7 @@ export default function Home() {
               Save surplus food. Deliver it locally.
             </h1>
             <p className="mt-3 max-w-xl text-base leading-relaxed text-[#43544a]">
-              Match restaurant donations with nonprofits and volunteer drivers before food becomes waste.
+              Match restaurant donations with nonprofits and volunteer drivers before good food becomes landfill methane.
             </p>
             <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-3">
               <button onClick={() => scrollTo("demo")} className="inline-flex items-center gap-2 rounded-2xl bg-forest-700 px-6 py-3 text-base font-bold text-white shadow-md transition hover:bg-forest-800">
@@ -789,6 +793,9 @@ export default function Home() {
                     <p className="mt-0.5 text-[13px] text-[#5a6b60]">
                       Delivered to {lastDelivered.claimedByOrgName?.replace(" (Demo)", "") ?? "recipient org"} · {lastDelivered.pounds} lbs · {lastDelivered.meals} {lastDelivered.unit} recorded
                     </p>
+                    <p className="mt-0.5 text-[13px] font-semibold text-forest-800">
+                      ≈{Math.round(lastDelivered.pounds * 2.5 * 10) / 10} lbs CO₂e kept out of the atmosphere (est.)
+                    </p>
                     <button onClick={() => scrollTo("impact")} className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-forest-700 px-4 py-3 text-sm font-bold text-white hover:bg-forest-800">
                       View impact <Icon d={P.arrow} className="h-4 w-4" />
                     </button>
@@ -926,10 +933,11 @@ export default function Home() {
           <div className="mx-auto max-w-3xl px-4 py-10">
             <h2 className="text-xl font-extrabold tracking-tight">Food rescued, locally</h2>
             <p className="mt-0.5 text-sm text-[#5a6b60]">Every delivery keeps usable food in the community.</p>
-            <div className="mt-4 grid grid-cols-3 gap-2 sm:gap-3">
+            <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
               {[
-                { label: "Pounds", value: `${impact.lbs}` },
+                { label: "Pounds rescued", value: `${impact.lbs}` },
                 { label: "Items rescued", value: `${impact.items}` },
+                { label: "CO₂e avoided (est.)", value: `${impact.co2e} lbs`, hot: flash },
                 { label: "Deliveries", value: `${impact.deliveries}`, hot: flash },
               ].map((s) => (
                 <div key={s.label} className={`rounded-3xl border bg-white p-4 text-center shadow-sm transition sm:p-5 ${s.hot ? "animate-flash border-forest-500" : "border-forest-100"}`}>
@@ -938,7 +946,7 @@ export default function Home() {
                 </div>
               ))}
             </div>
-            <p className="mt-2 text-center text-xs text-[#5a6b60]">Each item is one sandwich, pastry, wrap, or meal. Pounds are the primary measure.</p>
+            <p className="mt-2 text-center text-xs text-[#5a6b60]">Each item is one sandwich, pastry, wrap, or meal. CO₂e avoided is a rough demo estimate (2.5 lbs per lb rescued, FAO figure) — not a certified calculation.</p>
             <p className="mt-1 text-center text-xs text-[#5a6b60]">{impact.active} active now · Demo activity</p>
 
             <div className="mt-4 rounded-3xl border border-forest-100 bg-white p-4 shadow-sm sm:p-5">
