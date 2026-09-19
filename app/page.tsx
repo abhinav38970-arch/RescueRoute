@@ -5,6 +5,7 @@ import { STATUS_FLOW, type Donation, type DonationStatus, type Nonprofit, type R
 import { DEMO_DONOR, DEMO_DRIVER_POOL, SEED_DONATIONS } from "@/lib/seed";
 import { useStore } from "@/lib/store";
 import { demoParse, scoreMatch } from "@/lib/demoAi";
+import RouteMap from "@/components/RouteMap";
 
 /* ---------------------------------- copy ---------------------------------- */
 
@@ -837,6 +838,9 @@ export default function Home() {
                           <UrgencyChip d={activeRoute} />
                         </div>
                         <p className="mt-0.5 text-[11px] text-[#5a6b60]">Demo route estimate · simulated distance and time</p>
+                        <div className="mt-3">
+                          <RouteMap pickup={activeRoute.pickupLocation} dropoff={activeRoute.claimedByOrgName?.replace(" (Demo)", "") ?? "Drop-off"} distanceMiles={activeRoute.distanceMiles} etaMinutes={activeRoute.etaMinutes} />
+                        </div>
                         <div className="mt-3 flex items-center gap-2.5">
                           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-forest-700 text-white"><Icon d={P.store} className="h-4 w-4" /></span>
                           <div className="min-w-0">
