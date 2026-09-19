@@ -65,3 +65,14 @@ body {
     animation: none;
   }
 }
+
+/* Animated dotted route trail on the Fremont diorama map. */
+@keyframes rm-dash {
+  to { stroke-dashoffset: -21; }
+}
+.rm-route-anim {
+  animation: rm-dash 1.1s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .rm-route-anim { animation: none; }
+}
