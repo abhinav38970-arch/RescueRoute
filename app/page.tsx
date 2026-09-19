@@ -10,16 +10,11 @@ import RouteMap from "./components/RouteMap";
 /* ---------------------------------- copy ---------------------------------- */
 
 const SAMPLE_TEXT =
-  "We have some extra veggie wraps from a catering order, maybe 14, they have cheese, keep them cold, and they need to be picked up before 8:45.";
+  "We have about 30 bean and cheese burritos left from the lunch rush, they have dairy and wheat, keep them warm, and they need to be picked up before 9 PM.";
 
 const FEATURED_TEXT =
   "Sunrise Bakery has 10 vegetarian sandwiches and 24 pastries left, about 15 pounds total. Contains dairy and wheat, keep refrigerated, pickup before 8:25 PM through the back entrance.";
 
-const ROLE_HELPER: Record<Role, string> = {
-  donor: "Post safe surplus in under a minute.",
-  nonprofit: "Claim food that fits your needs.",
-  volunteer: "Complete a nearby rescue route.",
-};
 
 const HOW_STEPS = [
   { icon: "box", title: "Post surplus", text: "Share food before it becomes waste." },
@@ -45,17 +40,17 @@ const GUIDE_STEPS = [
 // every field from here so Reset Demo is fully predictable.
 const DEFAULT_FORM = {
   rawText: SAMPLE_TEXT,
-  title: "14 boxed vegetarian wraps",
-  meals: 14,
+  title: "30 bean and cheese burritos",
+  meals: 30,
   unit: "items" as const,
-  pounds: 12,
+  pounds: 15,
   category: "prepared meals",
   dietary: "vegetarian",
-  allergens: "dairy",
-  storage: "refrigerated" as const,
-  deadline: "8:45 PM",
-  location: "Sunrise Bakery, Fremont (Demo)",
-  notes: "Pickup through back entrance.",
+  allergens: "dairy, wheat",
+  storage: "room" as const,
+  deadline: "9 PM",
+  location: "Mario's Taqueria, Fremont (Demo)",
+  notes: "",
 };
 
 /* --------------------------------- helpers --------------------------------- */
@@ -178,7 +173,7 @@ export default function Home() {
   const [location, setLocation] = useState(DEFAULT_FORM.location);
   const [notes, setNotes] = useState(DEFAULT_FORM.notes);
   const [parsed, setParsed] = useState(false);
-  const [editOpen, setEditOpen] = useState(true);
+  const [editOpen, setEditOpen] = useState(false);
   const [justPosted, setJustPosted] = useState<string | null>(null);
   const [deadlineError, setDeadlineError] = useState<string | null>(null);
 
@@ -313,7 +308,7 @@ export default function Home() {
     setLastDeliveredId(null);
     setSelectedId(null);
     setParsed(false);
-    setEditOpen(true);
+    setEditOpen(false);
     setFlash(false);
     setDeadlineError(null);
   }
@@ -332,16 +327,23 @@ export default function Home() {
     setLastDeliveredId(null);
   }
 
-  // Stepper state: done flags from donation statuses, current from role.
+  // One seed donation starts Delivered (an earlier fictional rescue) so the
+  // dashboard is alive on first load — but it must not count as the user's
+  // own demo progress in the stepper.
+  const seedDeliveredIds = useMemo(
+    () => new Set(SEED_DONATIONS.filter((d) => d.status === "Delivered").map((d) => d.id)),
+    []
+  );
+  // Stepper state: done flags from the user's own demo progress, current from role.
   const stageDone = useMemo(() => {
-    const st = donations.map((d) => d.status);
+    const st = donations.filter((d) => !seedDeliveredIds.has(d.id)).map((d) => d.status);
     return [
       st.some((s) => s !== "Available") || justPosted !== null,
       st.some((s) => s !== "Available"),
       st.some((s) => s === "Picked Up" || s === "Delivered"),
       st.some((s) => s === "Delivered"),
     ];
-  }, [donations, justPosted]);
+  }, [donations, justPosted, seedDeliveredIds]);
   const stageCurrent = role === "donor" ? 0 : role === "nonprofit" ? 1 : 2;
   const STEPS = ["Post food", "Claim match", "Deliver", "See impact"];
 
@@ -446,11 +448,11 @@ export default function Home() {
                 </div>
                 <div className="rm-float absolute -left-2 top-8 flex items-center gap-2 rounded-2xl border border-forest-100 bg-white/95 px-3 py-2 text-xs font-extrabold text-forest-900 shadow-lg backdrop-blur sm:-left-5">
                   <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-forest-500" />
-                  {seedLbs} lb rescued tonight
+                  {impact.lbs} lb rescued
                 </div>
                 <div className="rm-float2 absolute -right-2 bottom-10 flex items-center gap-2 rounded-2xl border border-forest-100 bg-white/95 px-3 py-2 text-xs font-extrabold text-forest-900 shadow-lg backdrop-blur sm:-right-4">
                   <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-ember-500" />
-                  &asymp;{Math.round(seedLbs * 2.5)} lb CO2e avoided
+                  &asymp;{impact.co2e} lb CO₂e avoided
                 </div>
               </div>
             </div>
@@ -502,30 +504,6 @@ export default function Home() {
               </ol>
             </div>
 
-            {/* Role switcher */}
-            <div className="mt-4" role="group" aria-label="Demo role">
-              <div className="grid grid-cols-3 gap-1 rounded-2xl bg-forest-100/70 p-1">
-                {([
-                  ["donor", "Donor", P.store],
-                  ["nonprofit", "Nonprofit", P.users],
-                  ["volunteer", "Volunteer", P.truck],
-                ] as [Role, string, string][]).map(([r, label, icon]) => (
-                  <button
-                    key={r}
-                    aria-pressed={role === r}
-                    onClick={() => pickRole(r)}
-                    className={`flex items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 text-sm font-bold transition ${
-                      role === r ? "bg-white text-forest-900 shadow" : "text-[#5a6b60] hover:text-forest-800"
-                    }`}
-                  >
-                    <Icon d={icon} className="h-4 w-4" />
-                    {label}
-                  </button>
-                ))}
-              </div>
-              <p className="mt-1.5 text-center text-[13px] text-[#5a6b60]">{ROLE_HELPER[role]}</p>
-            </div>
-
             {/* ------------------------------- DONOR ------------------------------ */}
             {role === "donor" && (
               <div className="mt-5">
@@ -568,7 +546,7 @@ export default function Home() {
                         Try a sample
                       </button>
                     </div>
-                    <p className="mt-1.5 text-[11px] text-[#5a6b60]">Demo parser · no live AI call</p>
+                    <p className="mt-1.5 text-[11px] text-[#5a6b60]">Rule-based parser · no AI call</p>
 
                     {parsed && (
                       <div className="mt-4 rounded-2xl bg-forest-50 p-4 ring-1 ring-forest-100">
@@ -672,7 +650,7 @@ export default function Home() {
             {role === "nonprofit" && (
               <div className="mt-5">
                 <h2 className="text-xl font-extrabold tracking-tight">Available food</h2>
-                <p className="mt-0.5 text-sm text-[#5a6b60]">Ranked by a transparent demo fit score.</p>
+                <p className="mt-0.5 text-sm text-[#5a6b60]">Ranked by a transparent fit score.</p>
                 <p className="mt-0.5 text-xs text-[#5a6b60]">Based on the prototype&apos;s food type, storage, diet, capacity, and distance.</p>
 
                 {activeDonation && lastClaimed && lastClaimed.status !== "Available" && lastClaimed.status !== "Delivered" && (
@@ -727,18 +705,9 @@ export default function Home() {
                         {activeDonation.dietaryTags.map((t) => <Chip key={t} label={t} tone="bg-forest-100 text-forest-800" />)}
                         {activeDonation.allergens.map((a) => <Chip key={a} label={`has ${a}`} tone="bg-ember-100 text-ember-700" />)}
                       </div>
-                      <details className="mt-2">
-                        <summary className="cursor-pointer list-none text-[13px] font-bold text-forest-700 [&::-webkit-details-marker]:hidden">
-                          <span className="inline-flex items-center gap-1">View food details <Icon d={P.chev} className="h-3.5 w-3.5" /></span>
-                        </summary>
-                        <div className="mt-1.5 space-y-1 text-[13px] leading-relaxed text-[#43544a]">
-                          <p>{activeDonation.description}</p>
-                          <p>{activeDonation.pickupLocation}{activeDonation.pickupNotes ? ` · ${activeDonation.pickupNotes}` : ""}</p>
-                          <p className="text-[#5a6b60]">{activeDonation.donorName}</p>
-                        </div>
-                      </details>
-                      {available.length > 1 && (
-                        <div className="mt-2 flex flex-wrap gap-1.5" role="group" aria-label="Choose donation">
+                                            {available.length > 1 && (
+                        <p className="text-[11px] font-extrabold uppercase tracking-wide text-sage-500">Available donations</p>
+                        <div className="mt-1 flex flex-wrap gap-1.5" role="group" aria-label="Choose donation">
                           {available.map((d) => (
                             <button
                               key={d.id}
@@ -753,6 +722,16 @@ export default function Home() {
                           ))}
                         </div>
                       )}
+<details className="mt-2">
+                        <summary className="cursor-pointer list-none text-[13px] font-bold text-forest-700 [&::-webkit-details-marker]:hidden">
+                          <span className="inline-flex items-center gap-1">View food details <Icon d={P.chev} className="h-3.5 w-3.5" /></span>
+                        </summary>
+                        <div className="mt-1.5 space-y-1 text-[13px] leading-relaxed text-[#43544a]">
+                          <p>{activeDonation.description}</p>
+                          <p>{activeDonation.pickupLocation}{activeDonation.pickupNotes ? ` · ${activeDonation.pickupNotes}` : ""}</p>
+                          <p className="text-[#5a6b60]">{activeDonation.donorName}</p>
+                        </div>
+                      </details>
                     </div>
 
                     {/* Matches */}
@@ -764,9 +743,9 @@ export default function Home() {
                           <div className="rounded-3xl border-2 border-forest-600 bg-white p-4 shadow-sm">
                             <div className="flex items-center justify-between gap-2">
                               <span className="rounded-full bg-forest-700 px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-wide text-white">Best fit</span>
-                              <span className="text-sm text-forest-800"><strong className="text-lg font-extrabold">{best.m.score}</strong> demo fit score</span>
+                              <span className="text-sm text-forest-800"><strong className="text-lg font-extrabold">{best.m.score}</strong> fit score</span>
                             </div>
-                            <p className="mt-1.5 font-bold">{best.np.name.replace(" (Demo)", "")} <span className="text-xs font-medium text-[#5a6b60]">· demo org</span></p>
+                            <p className="mt-1.5 font-bold">{best.np.name.replace(" (Demo)", "")}</p>
                             <p className="mt-0.5 text-sm text-[#43544a]">{shortReason(activeDonation, best.np)}</p>
                             <button onClick={() => handleAdvance(activeDonation, best.np.id)} className="mt-3 w-full rounded-2xl bg-forest-700 px-4 py-3 text-sm font-bold text-white transition hover:bg-forest-800">
                               Claim donation
@@ -775,23 +754,32 @@ export default function Home() {
                               <summary className="cursor-pointer list-none text-xs font-bold text-[#5a6b60] [&::-webkit-details-marker]:hidden">
                                 <span className="inline-flex items-center gap-1">Why this match? <Icon d={P.chev} className="h-3.5 w-3.5" /></span>
                               </summary>
-                              <p className="mt-1 text-xs leading-relaxed text-[#5a6b60]">Demo fit score from food type, storage, diet, capacity, and distance: {best.m.reasons.join(" · ")}</p>
+                              <p className="mt-1 text-xs leading-relaxed text-[#5a6b60]">Fit score from food type, storage, diet, capacity, and distance: {best.m.reasons.join(" · ")}</p>
                             </details>
                           </div>
 
                           {rest.length > 0 && (
                             <div className="mt-2 space-y-1.5">
-                              {rest.map(({ np, m }) => (
+                              {rest.map(({ np, m }) => {
+                                const recommended = m.score >= 70;
+                                return (
                                 <div key={np.id} className="flex items-center gap-2 rounded-2xl border border-forest-100 bg-white px-3 py-2.5 shadow-sm">
                                   <div className="min-w-0 flex-1">
                                     <p className="truncate text-sm font-bold">{np.name.replace(" (Demo)", "")} <span className="ml-1 rounded-full bg-cream px-1.5 py-0.5 text-[11px] font-extrabold text-forest-800 ring-1 ring-forest-100">Fit {m.score}</span></p>
                                     <p className="truncate text-xs text-[#5a6b60]">{candidateNote(activeDonation, np)}</p>
                                   </div>
+                                  {recommended ? (
                                   <button onClick={() => handleAdvance(activeDonation, np.id)} className="shrink-0 rounded-xl px-3 py-2 text-[13px] font-bold text-forest-800 ring-1 ring-forest-200 transition hover:bg-forest-50" aria-label={`Claim as ${np.name}`}>
                                     Claim
                                   </button>
+                                  ) : (
+                                  <button disabled title="Fit score below 70 — not recommended for this donation" aria-label={`Not recommended: ${np.name}`} className="shrink-0 cursor-not-allowed rounded-xl px-3 py-2 text-[13px] font-bold text-[#9aa5a0] ring-1 ring-forest-100">
+                                    Claim
+                                  </button>
+                                  )}
                                 </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           )}
                         </div>
@@ -858,7 +846,7 @@ export default function Home() {
                           <span>{activeRoute.distanceMiles} mi · ~{activeRoute.etaMinutes} min</span>
                           <UrgencyChip d={activeRoute} />
                         </div>
-                        <p className="mt-0.5 text-[11px] text-[#5a6b60]">Demo route estimate · simulated distance and time</p>
+                        <p className="mt-0.5 text-[11px] text-[#5a6b60]">Route estimate · simulated distance and time</p>
                         <div className="mt-3">
                           <RouteMap pickup={activeRoute.pickupLocation} dropoff={activeRoute.claimedByOrgName?.replace(" (Demo)", "") ?? "Drop-off"} distanceMiles={activeRoute.distanceMiles} etaMinutes={activeRoute.etaMinutes} />
                         </div>
@@ -960,9 +948,9 @@ export default function Home() {
             <p className="mt-0.5 text-sm text-[#5a6b60]">Every delivery keeps usable food in the community.</p>
             <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
               {[
-                { label: "Pounds rescued", value: `${impact.lbs}` },
+                { label: "Pounds rescued", value: `${impact.lbs} lb` },
                 { label: "Items rescued", value: `${impact.items}` },
-                { label: "CO₂e avoided (est.)", value: `${impact.co2e} lbs`, hot: flash },
+                { label: "CO₂e avoided (est.)", value: `${impact.co2e} lb`, hot: flash },
                 { label: "Deliveries", value: `${impact.deliveries}`, hot: flash },
               ].map((s) => (
                 <div key={s.label} className={`rounded-3xl border bg-white p-4 text-center shadow-sm transition sm:p-5 ${s.hot ? "animate-flash border-forest-500" : "border-forest-100"}`}>
