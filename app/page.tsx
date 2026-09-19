@@ -5,7 +5,7 @@ import { STATUS_FLOW, type Donation, type DonationStatus, type Nonprofit, type R
 import { DEMO_DONOR, DEMO_DRIVER_POOL, SEED_DONATIONS } from "@/lib/seed";
 import { useStore } from "@/lib/store";
 import { demoParse, scoreMatch } from "@/lib/demoAi";
-import RouteMap from "@/components/RouteMap";
+import RouteMap from "./components/RouteMap";
 
 /* ---------------------------------- copy ---------------------------------- */
 
