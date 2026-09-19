@@ -135,7 +135,7 @@ export default function RouteMap({ pickup, dropoff, distanceMiles, etaMinutes }:
 
               {/* Mission Blvd — diagonal */}
               <path d="M18,292 C120,232 220,182 382,112" fill="none" stroke="#d9d2bd" strokeWidth="8" strokeLinecap="round" />
-              <text x="120" y="248" fontSize="10" fontWeight="700" fill="#8a8270" transform="rotate(-24 120 248)">
+              <text x="200" y="206" fontSize="10" fontWeight="700" fill="#8a8270" transform="rotate(-24 200 206)">
                 Mission Blvd
               </text>
 
