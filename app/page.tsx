@@ -392,8 +392,14 @@ export default function Home() {
 
       <main>
         {/* -------------------------------- Hero -------------------------------- */}
-        <section className="border-b border-forest-100">
-          <div className="mx-auto max-w-6xl px-4 pb-8 pt-10 sm:pt-14">
+        <section className="relative overflow-hidden border-b border-forest-100">
+          <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+            <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-forest-100 opacity-70 blur-3xl" />
+            <div className="absolute -left-24 top-48 h-64 w-64 rounded-full bg-ember-100 opacity-60 blur-3xl" />
+          </div>
+          <div className="relative mx-auto max-w-6xl px-4 pb-10 pt-10 sm:pt-14">
+            <div className="grid items-center gap-10 lg:grid-cols-[1.02fr_0.98fr]">
+              <div>
             <p className="inline-flex items-center rounded-full border border-forest-200 bg-white px-2.5 py-1 text-[11px] font-bold text-forest-800">
               Fremont-focused prototype
             </p>
@@ -433,6 +439,21 @@ export default function Home() {
               </span>
             </div>
             <p className="mt-3 text-xs font-medium text-[#5a6b60]">{seedLbs} lb listed in tonight&apos;s demo</p>
+              </div>
+              <div className="relative mx-auto w-full max-w-md lg:max-w-none">
+                <div className="rotate-1 rounded-[1.75rem] border border-forest-100 bg-white p-2.5 shadow-xl">
+                  <RouteMap pickup="Sunrise Bakery" dropoff="Demo Food Pantry" distanceMiles={2.4} etaMinutes={12} />
+                </div>
+                <div className="rm-float absolute -left-2 top-8 flex items-center gap-2 rounded-2xl border border-forest-100 bg-white/95 px-3 py-2 text-xs font-extrabold text-forest-900 shadow-lg backdrop-blur sm:-left-5">
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-forest-500" />
+                  {seedLbs} lb rescued tonight
+                </div>
+                <div className="rm-float2 absolute -right-2 bottom-10 flex items-center gap-2 rounded-2xl border border-forest-100 bg-white/95 px-3 py-2 text-xs font-extrabold text-forest-900 shadow-lg backdrop-blur sm:-right-4">
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-ember-500" />
+                  &asymp;{Math.round(seedLbs * 2.5)} lb CO2e avoided
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 
