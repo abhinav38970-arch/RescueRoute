@@ -76,3 +76,18 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .rm-route-anim { animation: none; }
 }
+
+/* Gentle float for hero stat chips over the diorama map. */
+@keyframes rm-float {
+  0%, 100% { transform: translateY(0) rotate(-2deg); }
+  50% { transform: translateY(-8px) rotate(-2deg); }
+}
+@keyframes rm-float2 {
+  0%, 100% { transform: translateY(0) rotate(2deg); }
+  50% { transform: translateY(-6px) rotate(2deg); }
+}
+.rm-float { animation: rm-float 5s ease-in-out infinite; }
+.rm-float2 { animation: rm-float2 6.5s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .rm-float, .rm-float2 { animation: none; }
+}
